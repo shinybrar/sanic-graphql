@@ -4,9 +4,9 @@ import re
 from sanic.response import html
 
 
-GRAPHIQL_VERSION = '0.7.1'
+GRAPHIQL_VERSION = "0.7.1"
 
-TEMPLATE = '''<!--
+TEMPLATE = """<!--
 The request to this GraphQL server provided the header "Accept: text/html"
 and as a result has been presented GraphiQL - an in-browser IDE for
 exploring GraphQL.
@@ -124,25 +124,25 @@ add "&raw" to the end of the URL within a browser.
     );
   </script>
 </body>
-</html>'''
+</html>"""
 
 
 def escape_js_value(value):
     quotation = False
     if value.startswith('"') and value.endswith('"'):
         quotation = True
-        value = value[1:len(value)-1]
+        value = value[1 : len(value) - 1]
 
-    value = value.replace('\\\\n', '\\\\\\n').replace('\\n', '\\\\n')
+    value = value.replace("\\\\n", "\\\\\\n").replace("\\n", "\\\\n")
     if quotation:
-        value = '"' + value.replace('\\\\"', '"').replace('\"', '\\\"') + '"'
+        value = '"' + value.replace('\\\\"', '"').replace('"', '\\"') + '"'
 
     return value
 
 
 def process_var(template, name, value, jsonify=False):
-    pattern = r'{{\s*' + name + r'(\s*|[^}]+)*\s*}}'
-    if jsonify and value not in ['null', 'undefined']:
+    pattern = r"{{\s*" + name + r"(\s*|[^}]+)*\s*}}"
+    if jsonify and value not in ["null", "undefined"]:
         value = json.dumps(value)
         value = escape_js_value(value)
 
@@ -150,27 +150,33 @@ def process_var(template, name, value, jsonify=False):
 
 
 def simple_renderer(template, **values):
-    replace = ['graphiql_version']
-    replace_jsonify = ['query', 'result', 'variables', 'operation_name']
+    replace = ["graphiql_version"]
+    replace_jsonify = ["query", "result", "variables", "operation_name"]
 
     for r in replace:
-        template = process_var(template, r, values.get(r, ''))
+        template = process_var(template, r, values.get(r, ""))
 
     for r in replace_jsonify:
-        template = process_var(template, r, values.get(r, ''), True)
+        template = process_var(template, r, values.get(r, ""), True)
 
     return template
 
 
-async def render_graphiql(jinja_env=None, graphiql_version=None, graphiql_template=None, params=None, result=None):
+async def render_graphiql(
+    jinja_env=None,
+    graphiql_version=None,
+    graphiql_template=None,
+    params=None,
+    result=None,
+):
     graphiql_version = graphiql_version or GRAPHIQL_VERSION
     template = graphiql_template or TEMPLATE
     template_vars = {
-      'graphiql_version': graphiql_version,
-      'query': params and params.query,
-      'variables': params and params.variables,
-      'operation_name': params and params.operation_name,
-      'result': result,
+        "graphiql_version": graphiql_version,
+        "query": params and params.query,
+        "variables": params and params.variables,
+        "operation_name": params and params.operation_name,
+        "result": result,
     }
 
     if jinja_env:

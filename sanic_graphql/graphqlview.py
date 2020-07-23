@@ -9,9 +9,14 @@ from sanic.views import HTTPMethodView
 
 from graphql.type.schema import GraphQLSchema
 from graphql.execution.executors.asyncio import AsyncioExecutor
-from graphql_server import (HttpQueryError, default_format_error,
-                            encode_execution_results, json_encode,
-                            load_json_body, run_http_query)
+from graphql_server import (
+    HttpQueryError,
+    default_format_error,
+    encode_execution_results,
+    json_encode,
+    load_json_body,
+    run_http_query,
+)
 
 from .render_graphiql import render_graphiql
 
@@ -32,7 +37,7 @@ class GraphQLView(HTTPMethodView):
 
     _enable_async = True
 
-    methods = ['GET', 'POST', 'PUT', 'DELETE']
+    methods = ["GET", "POST", "PUT", "DELETE"]
 
     def __init__(self, **kwargs):
         super(GraphQLView, self).__init__()
@@ -40,8 +45,12 @@ class GraphQLView(HTTPMethodView):
             if hasattr(self, key):
                 setattr(self, key, value)
 
-        self._enable_async = self._enable_async and isinstance(self.executor, AsyncioExecutor)
-        assert isinstance(self.schema, GraphQLSchema), 'A Schema is required to be provided to GraphQLView.'
+        self._enable_async = self._enable_async and isinstance(
+            self.executor, AsyncioExecutor
+        )
+        assert isinstance(
+            self.schema, GraphQLSchema
+        ), "A Schema is required to be provided to GraphQLView."
 
     # noinspection PyUnusedLocal
     def get_root_value(self, request):
@@ -50,12 +59,11 @@ class GraphQLView(HTTPMethodView):
     def get_context(self, request):
         context = (
             self.context.copy()
-            if self.context and
-            isinstance(self.context, Mapping)
+            if self.context and isinstance(self.context, Mapping)
             else {}
         )
-        if isinstance(context, Mapping) and 'request' not in context:
-            context.update({'request': request})
+        if isinstance(context, Mapping) and "request" not in context:
+            context.update({"request": request})
         return context
 
     def get_middleware(self, request):
@@ -81,12 +89,14 @@ class GraphQLView(HTTPMethodView):
             request_method = request.method.lower()
             data = self.parse_body(request)
 
-            show_graphiql = request_method == 'get' and self.should_display_graphiql(request)
+            show_graphiql = request_method == "get" and self.should_display_graphiql(
+                request
+            )
             catch = show_graphiql
 
-            pretty = self.pretty or show_graphiql or request.args.get('pretty')
+            pretty = self.pretty or show_graphiql or request.args.get("pretty")
 
-            if request_method != 'options':
+            if request_method != "options":
                 execution_results, all_params = run_http_query(
                     self.schema,
                     request_method,
@@ -94,7 +104,6 @@ class GraphQLView(HTTPMethodView):
                     query_data=request.args,
                     batch_enabled=self.batch,
                     catch=catch,
-
                     # Execute options
                     return_promise=self._enable_async,
                     root_value=self.get_root_value(request),
@@ -107,19 +116,16 @@ class GraphQLView(HTTPMethodView):
                     awaited_execution_results,
                     is_batch=isinstance(data, list),
                     format_error=self.format_error,
-                    encode=partial(self.encode, pretty=pretty)
+                    encode=partial(self.encode, pretty=pretty),
                 )
 
                 if show_graphiql:
                     return await self.render_graphiql(
-                        params=all_params[0],
-                        result=result
+                        params=all_params[0], result=result
                     )
 
                 return HTTPResponse(
-                    result,
-                    status=status_code,
-                    content_type='application/json'
+                    result, status=status_code, content_type="application/json"
                 )
 
             else:
@@ -127,24 +133,25 @@ class GraphQLView(HTTPMethodView):
 
         except HttpQueryError as e:
             return HTTPResponse(
-                self.encode({
-                    'errors': [default_format_error(e)]
-                }),
+                self.encode({"errors": [default_format_error(e)]}),
                 status=e.status_code,
                 headers=e.headers,
-                content_type='application/json'
+                content_type="application/json",
             )
 
     # noinspection PyBroadException
     def parse_body(self, request):
         content_type = self.get_mime_type(request)
-        if content_type == 'application/graphql':
-            return {'query': request.body.decode('utf8')}
+        if content_type == "application/graphql":
+            return {"query": request.body.decode("utf8")}
 
-        elif content_type == 'application/json':
-            return load_json_body(request.body.decode('utf8'))
+        elif content_type == "application/json":
+            return load_json_body(request.body.decode("utf8"))
 
-        elif content_type in ('application/x-www-form-urlencoded', 'multipart/form-data'):
+        elif content_type in (
+            "application/x-www-form-urlencoded",
+            "multipart/form-data",
+        ):
             return request.form
 
         return {}
@@ -153,38 +160,36 @@ class GraphQLView(HTTPMethodView):
     def get_mime_type(request):
         # We use mimetype here since we don't need the other
         # information provided by content_type
-        if 'content-type' not in request.headers:
+        if "content-type" not in request.headers:
             return None
 
-        mimetype, _ = parse_header(request.headers['content-type'])
+        mimetype, _ = parse_header(request.headers["content-type"])
         return mimetype
 
     def should_display_graphiql(self, request):
-        if not self.graphiql or 'raw' in request.args:
+        if not self.graphiql or "raw" in request.args:
             return False
 
         return self.request_wants_html(request)
 
     def request_wants_html(self, request):
-        accept = request.headers.get('accept', {})
-        return 'text/html' in accept or '*/*' in accept
+        accept = request.headers.get("accept", {})
+        return "text/html" in accept or "*/*" in accept
 
     def process_preflight(self, request):
         """ Preflight request support for apollo-client
         https://www.w3.org/TR/cors/#resource-preflight-requests """
-        origin = request.headers.get('Origin', '')
-        method = request.headers.get('Access-Control-Request-Method', '').upper()
+        origin = request.headers.get("Origin", "")
+        method = request.headers.get("Access-Control-Request-Method", "").upper()
 
         if method and method in self.methods:
             return HTTPResponse(
                 status=200,
                 headers={
-                    'Access-Control-Allow-Origin': origin,
-                    'Access-Control-Allow-Methods': ', '.join(self.methods),
-                    'Access-Control-Max-Age': str(self.max_age),
-                }
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Methods": ", ".join(self.methods),
+                    "Access-Control-Max-Age": str(self.max_age),
+                },
             )
         else:
-            return HTTPResponse(
-                status=400,
-            )
+            return HTTPResponse(status=400)
